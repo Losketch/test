@@ -100,11 +100,11 @@ jobs:
           ttc.save("fonts/static/Plangothic.ttc")
           EOF
 
-      - name: Deploy to GitHub Pages
+      - name: Publish Font Assets
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: fonts
-          branch: gh-pages
+          branch: build
           target-folder: fonts
           clean: false
           clean-exclude: |
