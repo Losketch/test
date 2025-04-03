@@ -104,7 +104,7 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: fonts
-          branch: build
+          branch: main
           target-folder: fonts
           clean: false
           clean-exclude: |
