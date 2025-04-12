@@ -1,0 +1,98 @@
+name: Release Packaging
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=manual-$(date +'%Y%m%d%H%M%S')
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Copy LICENSE to TTF directory
+        run: |
+          if [ -d "./Plangothic_Project/fonts/static" ]; then
+            cp LICENSE.txt ./Plangothic_Project/fonts/static/
+          fi
+
+      - name: Create versioned directories and archives
+        run: |
+          cd ./Plangothic_Project/fonts
+
+          OTF_DIR="otf-${VERSION}"
+          STATIC_DIR="static-${VERSION}"
+          WEB_DIR="web-${VERSION}"
+          FONTS_DIR="fonts-${VERSION}"
+
+          mkdir -p ../${OTF_DIR} ../${STATIC_DIR} ../${WEB_DIR} ../${FONTS_DIR}
+
+          cp -r otf/* ../${OTF_DIR}/
+          cp -r static/* ../${STATIC_DIR}/
+          cp -r web/* ../${WEB_DIR}/
+          cp -r ./* ../${FONTS_DIR}/
+
+          cd ..
+
+          zip -r ${OTF_DIR}.zip ${OTF_DIR}
+          zip -r ${STATIC_DIR}.zip ${STATIC_DIR}
+          zip -r ${WEB_DIR}.zip ${WEB_DIR}
+          zip -r ${FONTS_DIR}.zip ${FONTS_DIR}
+
+          tar -czf ${OTF_DIR}.tar.gz ${OTF_DIR}
+          tar -czf ${STATIC_DIR}.tar.gz ${STATIC_DIR}
+          tar -czf ${WEB_DIR}.tar.gz ${WEB_DIR}
+          tar -czf ${FONTS_DIR}.tar.gz ${FONTS_DIR}
+
+          mv *.zip *.tar.gz ../
+
+      - name: Clean up temporary directories
+        run: |
+          rm -rf ./Plangothic_Project/otf-${VERSION}
+          rm -rf ./Plangothic_Project/static-${VERSION}
+          rm -rf ./Plangothic_Project/web-${VERSION}
+          rm -rf ./Plangothic_Project/fonts-${VERSION}
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            otf-${{ env.VERSION }}.zip
+            otf-${{ env.VERSION }}.tar.gz
+            static-${{ env.VERSION }}.zip
+            static-${{ env.VERSION }}.tar.gz
+            web-${{ env.VERSION }}.zip
+            web-${{ env.VERSION }}.tar.gz
+            fonts-${{ env.VERSION }}.zip
+            fonts-${{ env.VERSION }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v3
+        with:
+          name: packaged-fonts
+          path: |
+            otf-${{ env.VERSION }}.zip
+            otf-${{ env.VERSION }}.tar.gz
+            static-${{ env.VERSION }}.zip
+            static-${{ env.VERSION }}.tar.gz
+            web-${{ env.VERSION }}.zip
+            web-${{ env.VERSION }}.tar.gz
+            fonts-${{ env.VERSION }}.zip
+            fonts-${{ env.VERSION }}.tar.gz
