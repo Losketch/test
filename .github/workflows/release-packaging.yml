@@ -25,13 +25,13 @@ jobs:
 
       - name: Copy LICENSE to TTF directory
         run: |
-          if [ -d "./Plangothic_Project/fonts/static" ]; then
-            cp LICENSE.txt ./Plangothic_Project/fonts/static/
+          if [ -d "./fonts/static" ]; then
+            cp LICENSE.txt ./fonts/static/
           fi
 
       - name: Create versioned directories and archives
         run: |
-          cd ./Plangothic_Project/fonts
+          cd ./fonts
 
           OTF_DIR="otf-${VERSION}"
           STATIC_DIR="static-${VERSION}"
@@ -61,10 +61,10 @@ jobs:
 
       - name: Clean up temporary directories
         run: |
-          rm -rf ./Plangothic_Project/otf-${VERSION}
-          rm -rf ./Plangothic_Project/static-${VERSION}
-          rm -rf ./Plangothic_Project/web-${VERSION}
-          rm -rf ./Plangothic_Project/fonts-${VERSION}
+          rm -rf ./fonts/otf-${VERSION}
+          rm -rf ./fonts/static-${VERSION}
+          rm -rf ./fonts/web-${VERSION}
+          rm -rf ./fonts-${VERSION}
 
       - name: Upload release assets
         if: startsWith(github.ref, 'refs/tags/')
