@@ -4,81 +4,111 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      font_name:
+        description: 'Font name prefix for packages'
+        required: true
+        default: Plangothic'
 
 jobs:
   package:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Get version
-        id: get_version
+      - name: Set up environment
+        id: setup
         run: |
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/}
+            echo "Running for release tag: $VERSION"
           else
             VERSION=manual-$(date +'%Y%m%d%H%M%S')
+            echo "Running manual workflow with version: $VERSION"
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Copy LICENSE to TTF directory
-        run: |
-          if [ -d "./fonts/static" ]; then
-            cp LICENSE.txt ./fonts/static/
+          if [ "${{ github.event.inputs.font_name }}" != "" ]; then
+            FONT_NAME="${{ github.event.inputs.font_name }}"
+          else
+            FONT_NAME=$(echo "${{ github.repository }}" | awk -F / '{print $2}')
+          fi
+          echo "FONT_NAME=${FONT_NAME}" >> $GITHUB_ENV
+          echo "Using font name: ${FONT_NAME}"
+
+          sudo apt-get update && sudo apt-get install -y p7zip-full
+
+          if [ ! -d "./fonts" ]; then
+            echo "Error: fonts directory not found!"
+            exit 1
           fi
 
-      - name: Create versioned directories and archives
+          for DIR in ./fonts/otf ./fonts/static ./fonts/web; do
+            if [ ! -d "$DIR" ]; then
+              echo "Warning: $DIR directory not found, will be skipped"
+            else
+              echo "Found directory: $DIR"
+            fi
+          done
+
+      - name: Prepare and package font files
         run: |
+          if [ -d "./fonts/static" ] && [ -f "LICENSE.txt" ]; then
+            echo "Copying LICENSE.txt to static directory"
+            cp LICENSE.txt ./fonts/static/
+          else
+            echo "Either static directory or LICENSE.txt not found, skipping license copy"
+          fi
+
+          mkdir -p ./dist
+
+          echo "Creating versioned packages..."
+          
           cd ./fonts
 
-          OTF_DIR="otf-${VERSION}"
-          STATIC_DIR="static-${VERSION}"
-          WEB_DIR="web-${VERSION}"
-          FONTS_DIR="fonts-${VERSION}"
+          OTF_DIR="../dist/${FONT_NAME}-otf-${VERSION}"
+          STATIC_DIR="../dist/${FONT_NAME}-static-${VERSION}"
+          WEB_DIR="../dist/${FONT_NAME}-web-${VERSION}"
+          FONTS_DIR="../dist/${FONT_NAME}-fonts-${VERSION}"
 
-          mkdir -p ../${OTF_DIR} ../${STATIC_DIR} ../${WEB_DIR} ../${FONTS_DIR}
+          mkdir -p ${OTF_DIR} ${STATIC_DIR} ${WEB_DIR} ${FONTS_DIR}
 
-          cp -r otf/* ../${OTF_DIR}/
-          cp -r static/* ../${STATIC_DIR}/
-          cp -r web/* ../${WEB_DIR}/
-          cp -r ./* ../${FONTS_DIR}/
+          if [ -d "otf" ]; then cp -r otf/* ${OTF_DIR}/; fi
+          if [ -d "static" ]; then cp -r static/* ${STATIC_DIR}/; fi
+          if [ -d "web" ]; then cp -r web/* ${WEB_DIR}/; fi
+          cp -r ./* ${FONTS_DIR}/
 
-          cd ..
+          cd ../dist
 
-          zip -r ${OTF_DIR}.zip ${OTF_DIR}
-          zip -r ${STATIC_DIR}.zip ${STATIC_DIR}
-          zip -r ${WEB_DIR}.zip ${WEB_DIR}
-          zip -r ${FONTS_DIR}.zip ${FONTS_DIR}
+          echo "Creating ZIP and 7z archives..."
+          for DIR in ${FONT_NAME}-otf-${VERSION} ${FONT_NAME}-static-${VERSION} ${FONT_NAME}-web-${VERSION} ${FONT_NAME}-fonts-${VERSION}; do
+            if [ -d "$DIR" ]; then
+              echo "Creating archives for $DIR"
+              zip -r ${DIR}.zip ${DIR}
+              7z a -t7z ${DIR}.7z ${DIR}
+            fi
+          done
 
-          tar -czf ${OTF_DIR}.tar.gz ${OTF_DIR}
-          tar -czf ${STATIC_DIR}.tar.gz ${STATIC_DIR}
-          tar -czf ${WEB_DIR}.tar.gz ${WEB_DIR}
-          tar -czf ${FONTS_DIR}.tar.gz ${FONTS_DIR}
-
-          mv *.zip *.tar.gz ../
-
-      - name: Clean up temporary directories
-        run: |
-          rm -rf ./fonts/otf-${VERSION}
-          rm -rf ./fonts/static-${VERSION}
-          rm -rf ./fonts/web-${VERSION}
-          rm -rf ./fonts-${VERSION}
+          echo "Created the following packages:"
+          ls -la *.zip *.7z
 
       - name: Upload release assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ../otf-${{ env.VERSION }}.zip
-            ../otf-${{ env.VERSION }}.tar.gz
-            ../static-${{ env.VERSION }}.zip
-            ../static-${{ env.VERSION }}.tar.gz
-            ../web-${{ env.VERSION }}.zip
-            ../web-${{ env.VERSION }}.tar.gz
-            ../fonts-${{ env.VERSION }}.zip
-            ../fonts-${{ env.VERSION }}.tar.gz
+            dist/${{ env.FONT_NAME }}-otf-${{ env.VERSION }}.zip
+            dist/${{ env.FONT_NAME }}-otf-${{ env.VERSION }}.7z
+            dist/${{ env.FONT_NAME }}-static-${{ env.VERSION }}.zip
+            dist/${{ env.FONT_NAME }}-static-${{ env.VERSION }}.7z
+            dist/${{ env.FONT_NAME }}-web-${{ env.VERSION }}.zip
+            dist/${{ env.FONT_NAME }}-web-${{ env.VERSION }}.7z
+            dist/${{ env.FONT_NAME }}-fonts-${{ env.VERSION }}.zip
+            dist/${{ env.FONT_NAME }}-fonts-${{ env.VERSION }}.7z
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -86,13 +116,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: packaged-fonts
-          path: |
-            otf-${{ env.VERSION }}.zip
-            otf-${{ env.VERSION }}.tar.gz
-            static-${{ env.VERSION }}.zip
-            static-${{ env.VERSION }}.tar.gz
-            web-${{ env.VERSION }}.zip
-            web-${{ env.VERSION }}.tar.gz
-            fonts-${{ env.VERSION }}.zip
-            fonts-${{ env.VERSION }}.tar.gz
+          name: ${{ env.FONT_NAME }}-packaged-fonts-${{ env.VERSION }}
+          path: dist/*.{zip,7z}
+          retention-days: 7
