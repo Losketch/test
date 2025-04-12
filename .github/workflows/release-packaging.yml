@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       font_name:
-        description: 'Font name prefix for packages'
-        required: true
-        default: 'Plangothic'
+        description: 'Font name prefix for packages (overrides default)'
+        required: false
+        default: ''
 
 jobs:
   package:
@@ -32,11 +32,13 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-          if [ "${{ github.event.inputs.font_name }}" != "" ]; then
+          FONT_NAME="Plangothic"
+
+          if [ -n "${{ github.event.inputs.font_name }}" ]; then
             FONT_NAME="${{ github.event.inputs.font_name }}"
-          else
-            FONT_NAME=$(echo "${{ github.repository }}" | awk -F / '{print $2}')
+            echo "Overriding font name from workflow input"
           fi
+
           echo "FONT_NAME=${FONT_NAME}" >> $GITHUB_ENV
           echo "Using font name: ${FONT_NAME}"
 
