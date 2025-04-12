@@ -59,11 +59,18 @@ jobs:
 
       - name: Prepare and package font files
         run: |
-          if [ -d "./fonts/static" ] && [ -f "LICENSE.txt" ]; then
-            echo "Copying LICENSE.txt to static directory"
-            cp LICENSE.txt ./fonts/static/
+          # Copy LICENSE.txt to all font directories
+          if [ -f "LICENSE.txt" ]; then
+            for DIR in "./fonts/static" "./fonts/otf" "./fonts/web"; do
+              if [ -d "$DIR" ]; then
+                echo "Copying LICENSE.txt to $DIR directory"
+                cp LICENSE.txt "$DIR/"
+              else
+                echo "$DIR directory not found, skipping license copy"
+              fi
+            done
           else
-            echo "Either static directory or LICENSE.txt not found, skipping license copy"
+            echo "LICENSE.txt not found, skipping license copy"
           fi
 
           mkdir -p ./dist
