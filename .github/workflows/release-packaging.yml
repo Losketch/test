@@ -8,7 +8,7 @@ on:
       font_name:
         description: 'Font name prefix for packages'
         required: true
-        default: Plangothic'
+        default: 'Plangothic'
 
 jobs:
   package:
