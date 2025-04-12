@@ -90,8 +90,8 @@ jobs:
           for DIR in ${FONT_NAME}-otf-${VERSION} ${FONT_NAME}-static-${VERSION} ${FONT_NAME}-web-${VERSION} ${FONT_NAME}-fonts-${VERSION}; do
             if [ -d "$DIR" ]; then
               echo "Creating archives for $DIR"
-              zip -r ${DIR}.zip ${DIR}
-              7z a -t7z ${DIR}.7z ${DIR}
+              zip -r -9 ${DIR}.zip ${DIR}
+              7z a -t7z -mx=9 ${DIR}.7z ${DIR}
             fi
           done
 
