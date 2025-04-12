@@ -71,14 +71,14 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            otf-${{ env.VERSION }}.zip
-            otf-${{ env.VERSION }}.tar.gz
-            static-${{ env.VERSION }}.zip
-            static-${{ env.VERSION }}.tar.gz
-            web-${{ env.VERSION }}.zip
-            web-${{ env.VERSION }}.tar.gz
-            fonts-${{ env.VERSION }}.zip
-            fonts-${{ env.VERSION }}.tar.gz
+            ../otf-${{ env.VERSION }}.zip
+            ../otf-${{ env.VERSION }}.tar.gz
+            ../static-${{ env.VERSION }}.zip
+            ../static-${{ env.VERSION }}.tar.gz
+            ../web-${{ env.VERSION }}.zip
+            ../web-${{ env.VERSION }}.tar.gz
+            ../fonts-${{ env.VERSION }}.zip
+            ../fonts-${{ env.VERSION }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
