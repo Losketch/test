@@ -82,7 +82,7 @@ jobs:
           OTF_DIR="../dist/${FONT_NAME}-otf-${VERSION}"
           STATIC_DIR="../dist/${FONT_NAME}-static-${VERSION}"
           WEB_DIR="../dist/${FONT_NAME}-web-${VERSION}"
-          FONTS_DIR="../dist/${FONT_NAME}-fonts-${VERSION}"
+          FONTS_DIR="../dist/${FONT_NAME}-all-${VERSION}"
 
           mkdir -p ${OTF_DIR} ${STATIC_DIR} ${WEB_DIR} ${FONTS_DIR}
 
@@ -94,7 +94,7 @@ jobs:
           cd ../dist
 
           echo "Creating ZIP and 7z archives..."
-          for DIR in ${FONT_NAME}-otf-${VERSION} ${FONT_NAME}-static-${VERSION} ${FONT_NAME}-web-${VERSION} ${FONT_NAME}-fonts-${VERSION}; do
+          for DIR in ${FONT_NAME}-otf-${VERSION} ${FONT_NAME}-static-${VERSION} ${FONT_NAME}-web-${VERSION} ${FONT_NAME}-all-${VERSION}; do
             if [ -d "$DIR" ]; then
               echo "Creating archives for $DIR"
               zip -r -9 ${DIR}.zip ${DIR}
@@ -116,8 +116,8 @@ jobs:
             dist/${{ env.FONT_NAME }}-static-${{ env.VERSION }}.7z
             dist/${{ env.FONT_NAME }}-web-${{ env.VERSION }}.zip
             dist/${{ env.FONT_NAME }}-web-${{ env.VERSION }}.7z
-            dist/${{ env.FONT_NAME }}-fonts-${{ env.VERSION }}.zip
-            dist/${{ env.FONT_NAME }}-fonts-${{ env.VERSION }}.7z
+            dist/${{ env.FONT_NAME }}-all-${{ env.VERSION }}.zip
+            dist/${{ env.FONT_NAME }}-all-${{ env.VERSION }}.7z
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
