@@ -24,8 +24,7 @@ jobs:
       - name: Extract TTF files
         run: |
           mkdir -p temp
-          7z x sources/PlangothicP1-Regular.ttf.7z -obuild/
-          7z x sources/PlangothicP2-Regular.ttf.7z -obuild/
+          python sources/build.py
 
       - name: Optimize glyphs
         run: |
@@ -105,7 +104,7 @@ jobs:
           clean-exclude: |
             .nojekyll
             CNAME
-          path-option: skip
+          commit-message: "自动更新字体资源 [skip ci]"
 
       - name: Debug on failure
         if: failure()
