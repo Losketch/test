@@ -1,4 +1,4 @@
-name: Build Fonts
+name: ${{ github.workflow }}
 
 on:
   push:
