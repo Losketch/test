@@ -34,7 +34,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y p7zip-full fontforge python3-fontforge ttfautohint parallel
-          pip install fonttools brotli fontmake
+          pip install fonttools brotli fontmake numpy
 
       - name: Extract TTF files
         run: |
