@@ -80,40 +80,29 @@ jobs:
             mv "$ttf" "${ttf%_merge_glyphs.ttf}.ttf"
           done
 
-      - name: Merge TTF to TTC
+      - name: Merge Fonts to Collections
         run: |
           python3 - <<EOF
           from fontTools.ttLib import TTFont
-          from fontTools.ttLib.tables._n_a_m_e import NameRecord
           from fontTools.ttLib.ttCollection import TTCollection
 
-          font1 = TTFont("fonts/static/PlangothicP1-Regular.ttf")
-          font2 = TTFont("fonts/static/PlangothicP2-Regular.ttf")
+          def merge_fonts(input_files, output_file):
+              collection = TTCollection()
+              for font_file in input_files:
+                  font = TTFont(font_file)
+                  collection.fonts.append(font)
+              collection.save(output_file)
+              print(f"已创建字体集合文件: {output_file}")
 
-          ttc = TTCollection()
-          ttc.fonts = [font1, font2]
+          import os
+          os.makedirs("fonts/static", exist_ok=True)
+          os.makedirs("fonts/otf", exist_ok=True)
 
-          ttc.save("fonts/static/Plangothic.ttc")
-          EOF
+          ttf_files = ["fonts/static/PlangothicP1-Regular.ttf", "fonts/static/PlangothicP2-Regular.ttf"]
+          merge_fonts(ttf_files, "fonts/static/Plangothic.ttc")
 
-      - name: Merge OTF to OTC
-        run: |
-          python3 - <<EOF
-          from fontTools.ttLib import TTCollection
-          from fontTools.ttLib import TTFont
-
-          font_files = [
-              "fonts/otf/PlangothicP1-Regular.otf",
-              "fonts/otf/PlangothicP2-Regular.otf",
-          ]
-
-          collection = TTCollection()
-
-          for font_file in font_files:
-              font = TTFont(font_file)
-              collection.fonts.append(font)
-
-          collection.save("fonts/otf/Plangothic.ttc")
+          otf_files = ["fonts/otf/PlangothicP1-Regular.otf", "fonts/otf/PlangothicP2-Regular.otf"]
+          merge_fonts(otf_files, "fonts/otf/Plangothic.ttc")
           EOF
 
       - name: Update Fonts and Amend Last Commit
