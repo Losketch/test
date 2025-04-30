@@ -118,25 +118,37 @@ jobs:
 
       - name: Update Fonts and Amend Last Commit
         run: |
+          # 配置 Git
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-
-          git diff --quiet fonts/
-          if [ $? -ne 0 ]; then
-            LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
-
-            if [[ "$LAST_COMMIT_MSG" != *"[√]"* ]]; then
-              git add fonts/
-              git commit --amend -m "$LAST_COMMIT_MSG [√]"
-              
-              git push --force origin main
-              echo "已更新字体并修改最近的提交"
-            else
-              echo "最近的提交已经包含[√]标记，跳过修改"
-            fi
-          else
-            echo "没有字体文件变化，跳过提交"
+          
+          # 获取最近的提交信息
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          # 检查是否需要修改提交
+          if [[ "$LAST_COMMIT_MSG" == *"[√]"* ]]; then
+            echo "最近的提交已经包含[√]标记，跳过修改"
+            exit 0
           fi
+          
+          # 检查fonts目录是否存在
+          if [ ! -d "fonts" ]; then
+            echo "fonts目录不存在，正在创建..."
+            mkdir -p fonts
+            echo "已创建fonts目录"
+          else
+            echo "fonts目录已存在，继续处理..."
+          fi
+          
+          # 添加文件并修改提交
+          git add fonts/
+          
+          # 使用 --no-edit 参数如果提交信息未改变
+          git commit --amend -m "$LAST_COMMIT_MSG [√]"
+          
+          # 推送更改
+          echo "推送修改后的提交..."
+          git push --force origin main && echo "成功推送修改" || echo "推送失败"
 
       - name: Debug on failure
         if: failure()
