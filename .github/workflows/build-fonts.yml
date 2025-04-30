@@ -28,57 +28,60 @@ jobs:
           mkdir -p temp
           7z x sources/Plangothic-Regular.7z -obuild/
 
-      - name: Optimize glyphs
+      - name: Optimize and Convert Fonts
         run: |
-          mkdir -p optimized
+          mkdir -p optimized fonts/otf fonts/web fonts/static
+          
+          echo "===== 开始优化字形 ====="
           find build -name "Plangothic*-Regular.ttf" | parallel fontforge -script tools/optimize_glyph.py {} -s 0.5
           mv build/*_merge_glyphs.ttf optimized/
 
-      - name: Convert to OTF
-        run: |
-          mkdir -p fonts/otf
-          find optimized -name "Plangothic*-Regular_merge_glyphs.ttf" | parallel 'fontforge -script tools/convert_font.py {} -f otf'
+          process_fonts() {
+            local format=$1
+            local target_dir=$2
+            local extension=$3
 
-          for ttf in optimized/Plangothic*-Regular_merge_glyphs.ttf; do
+            echo "===== 开始转换为${format}格式 ====="
+            find optimized -name "Plangothic*-Regular_merge_glyphs.ttf" | parallel "fontforge -script tools/convert_font.py {} -f ${format}"
+
+            for ttf in optimized/Plangothic*-Regular_merge_glyphs.ttf; do
+              base=$(basename "$ttf" _merge_glyphs.ttf)
+              found=false
+
+              for location in "./" "optimized/"; do
+                source_file="${location}${base}_merge_glyphs.${extension}"
+                if [ -f "$source_file" ]; then
+                  echo "找到${format}文件: $source_file"
+                  mv "$source_file" "${target_dir}/${base}.${extension}"
+                  found=true
+                  break
+                fi
+              done
+
+              if [ "$found" = false ]; then
+                echo "警告: 未能在预期位置找到${base}的${format}文件"
+                echo "尝试查找所有可能的文件:"
+                find . -name "*${base}*.${extension}" -o -name "*Plangothic*.${extension}"
+              fi
+            done
+          }
+
+          process_fonts "otf" "fonts/otf" "otf"
+          process_fonts "woff2" "fonts/web" "woff2"
+
+          echo "===== 创建静态TTF文件 ====="
+          for ttf in optimized/*_merge_glyphs.ttf; do
             base=$(basename "$ttf" _merge_glyphs.ttf)
-            if [ -f "${base}_merge_glyphs.otf" ]; then
-              echo "Found OTF in current directory"
-              mv "${base}_merge_glyphs.otf" fonts/otf/${base}.otf
-            elif [ -f "optimized/${base}_merge_glyphs.otf" ]; then
-              echo "Found OTF in optimized directory"
-              mv "optimized/${base}_merge_glyphs.otf" fonts/otf/${base}.otf
-            else
-              echo "WARNING: Could not find OTF file for ${base} in expected locations."
-              find . -name "*${base}*.otf" -o -name "*Plangothic*.otf"
-            fi
+            cp "$ttf" "fonts/static/${base}.ttf"
           done
-
-      - name: Convert to WOFF2
-        run: |
-          mkdir -p fonts/web
-          find optimized -name "Plangothic*-Regular_merge_glyphs.ttf" | parallel 'fontforge -script tools/convert_font.py {} -f woff2'
-
-          for ttf in optimized/Plangothic*-Regular_merge_glyphs.ttf; do
-            base=$(basename "$ttf" _merge_glyphs.ttf)
-            if [ -f "${base}_merge_glyphs.woff2" ]; then
-              echo "Found WOFF2 in current directory"
-              mv "${base}_merge_glyphs.woff2" fonts/web/${base}.woff2
-            elif [ -f "optimized/${base}_merge_glyphs.woff2" ]; then
-              echo "Found WOFF2 in optimized directory"
-              mv "optimized/${base}_merge_glyphs.woff2" fonts/web/${base}.woff2
-            else
-              echo "WARNING: Could not find WOFF2 file for ${base} in expected locations."
-              find . -name "*${base}*.woff2" -o -name "*Plangothic*.woff2"
-            fi
-          done
-
-      - name: Create static TTF files
-        run: |
-          mkdir -p fonts/static
-          cp optimized/*_merge_glyphs.ttf fonts/static/
-          for ttf in fonts/static/*_merge_glyphs.ttf; do
-            mv "$ttf" "${ttf%_merge_glyphs.ttf}.ttf"
-          done
+          
+          echo "===== 生成文件验证 ====="
+          echo "OTF文件:"
+          ls -la fonts/otf/
+          echo "WOFF2文件:"
+          ls -la fonts/web/
+          echo "TTF文件:"
+          ls -la fonts/static/
 
       - name: Merge Fonts to Collections
         run: |
