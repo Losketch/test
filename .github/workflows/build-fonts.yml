@@ -17,24 +17,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full fontforge python3-fontforge ttfautohint parallel
-          pip install fonttools brotli fontmake numpy
+          sudo apt-get install -y p7zip-full fontforge python3-fontforge python3-pip ttfautohint parallel
+          pip install fonttools brotli fontmake
 
       - name: Extract TTF files
         run: |
@@ -47,49 +34,57 @@ jobs:
           find build -name "Plangothic*-Regular.ttf" | parallel fontforge -script tools/optimize_glyph.py {} -s 0.5
           mv build/*_merge_glyphs.ttf optimized/
 
-      - name: Convert to various formats
+      - name: Convert to OTF
         run: |
-          mkdir -p fonts/otf fonts/web fonts/static
-          
-          # Process each optimized TTF file
+          mkdir -p fonts/otf
+          find optimized -name "Plangothic*-Regular_merge_glyphs.ttf" | parallel 'fontforge -script tools/convert_font.py {} -f otf'
+
           for ttf in optimized/Plangothic*-Regular_merge_glyphs.ttf; do
             base=$(basename "$ttf" _merge_glyphs.ttf)
-            echo "Processing $base..."
-            
-            # Create static TTF
-            cp "$ttf" "fonts/static/${base}.ttf"
-            
-            # Convert to OTF
-            fontforge -script tools/convert_font.py "$ttf" -f otf
-            find . -name "${base}*_merge_glyphs.otf" -exec mv {} "fonts/otf/${base}.otf" \;
-            
-            # Convert to WOFF2
-            fontforge -script tools/convert_font.py "$ttf" -f woff2
-            find . -name "${base}*_merge_glyphs.woff2" -exec mv {} "fonts/web/${base}.woff2" \;
+            if [ -f "${base}_merge_glyphs.otf" ]; then
+              echo "Found OTF in current directory"
+              mv "${base}_merge_glyphs.otf" fonts/otf/${base}.otf
+            elif [ -f "optimized/${base}_merge_glyphs.otf" ]; then
+              echo "Found OTF in optimized directory"
+              mv "optimized/${base}_merge_glyphs.otf" fonts/otf/${base}.otf
+            else
+              echo "WARNING: Could not find OTF file for ${base} in expected locations."
+              find . -name "*${base}*.otf" -o -name "*Plangothic*.otf"
+            fi
           done
-          
-          # Check if we have the expected output files
-          echo "Generated files:"
-          find fonts -type f | sort
 
-      - name: Merge to TTC/OTC
+      - name: Convert to WOFF2
         run: |
-          # Function to check if all required files exist
-          check_files() {
-            local missing=0
-            for file in "$@"; do
-              if [ ! -f "$file" ]; then
-                echo "ERROR: Required file $file is missing!"
-                missing=1
-              fi
-            done
-            return $missing
-          }
-          
-          # Merge TTF to TTC
-          if check_files "fonts/static/PlangothicP1-Regular.ttf" "fonts/static/PlangothicP2-Regular.ttf"; then
-            python3 - <<EOF
+          mkdir -p fonts/web
+          find optimized -name "Plangothic*-Regular_merge_glyphs.ttf" | parallel 'fontforge -script tools/convert_font.py {} -f woff2'
+
+          for ttf in optimized/Plangothic*-Regular_merge_glyphs.ttf; do
+            base=$(basename "$ttf" _merge_glyphs.ttf)
+            if [ -f "${base}_merge_glyphs.woff2" ]; then
+              echo "Found WOFF2 in current directory"
+              mv "${base}_merge_glyphs.woff2" fonts/web/${base}.woff2
+            elif [ -f "optimized/${base}_merge_glyphs.woff2" ]; then
+              echo "Found WOFF2 in optimized directory"
+              mv "optimized/${base}_merge_glyphs.woff2" fonts/web/${base}.woff2
+            else
+              echo "WARNING: Could not find WOFF2 file for ${base} in expected locations."
+              find . -name "*${base}*.woff2" -o -name "*Plangothic*.woff2"
+            fi
+          done
+
+      - name: Create static TTF files
+        run: |
+          mkdir -p fonts/static
+          cp optimized/*_merge_glyphs.ttf fonts/static/
+          for ttf in fonts/static/*_merge_glyphs.ttf; do
+            mv "$ttf" "${ttf%_merge_glyphs.ttf}.ttf"
+          done
+
+      - name: Merge TTF to TTC
+        run: |
+          python3 - <<EOF
           from fontTools.ttLib import TTFont
+          from fontTools.ttLib.tables._n_a_m_e import NameRecord
           from fontTools.ttLib.ttCollection import TTCollection
 
           font1 = TTFont("fonts/static/PlangothicP1-Regular.ttf")
@@ -100,14 +95,10 @@ jobs:
 
           ttc.save("fonts/static/Plangothic.ttc")
           EOF
-            echo "Successfully created TTC file"
-          else
-            echo "Skipping TTC creation due to missing files"
-          fi
-          
-          # Merge OTF to OTC
-          if check_files "fonts/otf/PlangothicP1-Regular.otf" "fonts/otf/PlangothicP2-Regular.otf"; then
-            python3 - <<EOF
+
+      - name: Merge OTF to OTC
+        run: |
+          python3 - <<EOF
           from fontTools.ttLib import TTCollection
           from fontTools.ttLib import TTFont
 
@@ -124,32 +115,30 @@ jobs:
 
           collection.save("fonts/otf/Plangothic.ttc")
           EOF
-            echo "Successfully created OTC file"
-          else
-            echo "Skipping OTC creation due to missing files"
-          fi
 
       - name: Update Fonts and Amend Last Commit
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-          # 检查是否有实际变化
-          git diff --quiet fonts/
-          if [ $? -ne 0 ]; then
-            LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          mkdir -p fonts_temp
+          cp -r fonts/* fonts_temp/
 
-            if [[ "$LAST_COMMIT_MSG" != *"[√]"* ]]; then
-              git add fonts/
-              git commit --amend -m "$LAST_COMMIT_MSG [√]"
-              
-              git push --force origin main
-              echo "已更新字体并修改最近的提交"
-            else
-              echo "最近的提交已经包含[√]标记，跳过修改"
-            fi
+          git checkout main
+
+          mkdir -p fonts
+
+          cp -r fonts_temp/* fonts/
+
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          if [[ "$LAST_COMMIT_MSG" != *"[√]"* ]]; then
+            git add fonts/
+            git commit --amend -m "$LAST_COMMIT_MSG [√]"
+            
+            git push --force origin main
           else
-            echo "没有字体文件变化，跳过提交"
+            echo "最近的提交已经包含[√]标记，跳过修改"
           fi
 
       - name: Debug on failure
