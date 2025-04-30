@@ -6,6 +6,11 @@ on:
     paths:
       - 'sources/Plangothic-Regular.7z'
   workflow_dispatch:
+    inputs:
+      name:
+        description: '发布标题'
+        required: true
+        default: 'Build Fonts'
 
 jobs:
   build:
