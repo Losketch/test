@@ -1,4 +1,4 @@
-name: ${{ github.workflow }}
+name: ${{ github.event.inputs.workflow_name || 'Build Fonts' }}
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
       - 'sources/Plangothic-Regular.7z'
   workflow_dispatch:
     inputs:
-      name:
-        description: '发布标题'
-        required: true
+      workflow_name:
+        description: '指定工作流显示名称'
+        required: false
         default: 'Build Fonts'
 
 jobs:
