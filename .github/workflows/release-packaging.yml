@@ -138,14 +138,6 @@ jobs:
       FONT_NAME: ${{ needs.prepare.outputs.font_name }}
       REPO: ${{ github.repository }}
     steps:
-      - name: 获取当前发布说明
-        id: get_release_body
-        run: |
-        existing_body=$(gh release view "$VERSION" --repo "$REPO" --json body --template '{{.body}}')
-        echo "existing_body<<EOF" >> $GITHUB_OUTPUT
-        echo "$existing_body" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
       - name: 生成下载链接 / Generate download links
         id: generate_links
         run: |
@@ -165,28 +157,31 @@ jobs:
           echo -e "$table" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: 拼接新旧发布说明
+      - name: Get existing release notes
+        id: get_release_notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const release = context.github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: context.payload.release.tag_name
+            });
+            return release.then(res => res.data.body);
+
+      - name: Combine release notes and download links
+        id: combine_notes
         run: |
-          # 拼接旧内容和新链接
-          existing_body="${{ steps.get_release_body.outputs.existing_body }}"
-          new_links="${{ steps.generate_links.outputs.new_links }}"
-
-          if [ -z "$existing_body" ]; then
-            combined_body="$new_links"
-          else
-            combined_body="$existing_body\n\n$new_links"
-          fi
-
-          echo "Combined release notes:"
-          echo "$combined_body"
-
-          echo "combined_body<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$combined_body" >> $GITHUB_OUTPUT
+          existing_notes=$(echo ${{ steps.get_release_notes.outputs.result }})
+          new_notes="${{ steps.generate_links.outputs.links }}"
+          combined_notes="${existing_notes}\n\n${new_notes}"
+          echo "combined_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$combined_notes" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: 更新发行版描述 / Update release description
         run: |
-          gh release edit "$VERSION" --notes "$(cat $GITHUB_OUTPUT | sed -n '/^combined_body<<EOF$/,/^EOF$/p' | sed '1d;$d')"
+          gh release edit "$VERSION" --notes "${{ steps.combine_notes.outputs.combined_notes }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
