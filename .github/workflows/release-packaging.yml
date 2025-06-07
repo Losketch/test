@@ -157,31 +157,25 @@ jobs:
           echo -e "$table" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Get existing release notes
-        id: get_release_notes
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const release = context.github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag: context.payload.release.tag_name
-            });
-            return release.then(res => res.data.body);
-
-      - name: Combine release notes and download links
-        id: combine_notes
-        run: |
-          existing_notes=$(echo ${{ steps.get_release_notes.outputs.result }})
-          new_notes="${{ steps.generate_links.outputs.links }}"
-          combined_notes="${existing_notes}\n\n${new_notes}"
-          echo "combined_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$combined_notes" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: 更新发行版描述 / Update release description
         run: |
-          gh release edit "$VERSION" --notes "${{ steps.combine_notes.outputs.combined_notes }}"
+          gh release edit "$VERSION" --notes-file <(echo -e "${{ steps.generate_links.outputs.links }}")
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+
+  slsa-provenance:
+    needs: [prepare, package]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    steps:
+      - name: 生成 SLSA 证明 / Generate SLSA provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+        with:
+          base64-subjects: |
+            ${{ needs.package.outputs.hashes }}
+          attestation-name: provenance-${{ needs.prepare.outputs.version }}.intoto.jsonl
