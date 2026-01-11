@@ -11,19 +11,3 @@ body:
     description: 请详细描述您遇到的问题 / Please describe the issue you encountered in detail
   validations:
     required: true
-- type: textarea
-  attributes:
-    label: 环境（可选） / Environment (optional)
-    description: 您的运行环境信息 / Your environment information
-    placeholder: |
-      - OS:
-      - Font version:
-      - Browser/Editor:
-    render: markdown
-  validations:
-    required: false
-- type: textarea
-  attributes:
-    label: 其他附加说明（可选） / Other additional notes (optional)
-  validations:
-    required: false
